@@ -4,6 +4,8 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
+import org.gradle.work.Incremental
+import org.gradle.work.InputChanges
 import org.json.JSONObject
 
 import java.util.stream.Collectors
@@ -11,7 +13,7 @@ import java.util.stream.Collectors
 /**
  * Created by Aamir Abro on 25/06/2017.
  */
-class ConfigJsonTask extends DefaultTask {
+abstract class ConfigJsonTask extends DefaultTask {
 
     File intermediateDir;
     String classDirString;
@@ -19,7 +21,12 @@ class ConfigJsonTask extends DefaultTask {
     String packageName;
 
     @TaskAction
-    public void action() throws IOException {
+    public void action(InputChanges inputChanges) throws IOException {
+        boolean isChanged = !inputChanges.getFileChanges(jsonFiles).isEmpty()
+
+        if (!isChanged) {
+            return
+        }
 
         if (jsonFileNames != null && !jsonFileNames.isEmpty()) {
             generateClass()
@@ -31,7 +38,7 @@ class ConfigJsonTask extends DefaultTask {
     }
 
     @OutputFile
-    def getGeneratedClassFile () {
+    def getGeneratedClassFile() {
         def dir = new File(classDirString)
         if (!dir.exists()) {
             dir.mkdirs()
@@ -40,10 +47,11 @@ class ConfigJsonTask extends DefaultTask {
         return new File(dir, "ConfigJson.java")
     }
 
+    @Incremental
     @InputFiles
-    def getJsonFiles () {
+    def getJsonFiles() {
         return jsonFileNames.stream()
-                .map({name ->  new File(project.projectDir, name)})
+                .map({ name -> new File(project.projectDir, name) })
                 .collect(Collectors.toList());
     }
 
@@ -68,12 +76,12 @@ class ConfigJsonTask extends DefaultTask {
 
         def classFile = getGeneratedClassFile()
         classFile.createNewFile()
-        classFile.withWriter {out -> out.write(classString)}
+        classFile.withWriter { out -> out.write(classString) }
 
     }
 
 
-    def parseFieldsFromFile () {
+    def parseFieldsFromFile() {
 
         project.logger.lifecycle('ConfigJson: using files : {}', jsonFileNames)
 
@@ -99,9 +107,9 @@ class ConfigJsonTask extends DefaultTask {
     }
 
 
-    static def getTypeString (fieldValue) {
+    static def getTypeString(fieldValue) {
         String fieldType
-        if(fieldValue instanceof Integer){
+        if (fieldValue instanceof Integer) {
             fieldType = 'int'
         } else if (fieldValue instanceof Long) {
             fieldType = 'long'
@@ -121,11 +129,11 @@ class ConfigJsonTask extends DefaultTask {
     }
 
 
-    static def escapeValue (fieldValue) {
+    static def escapeValue(fieldValue) {
         if (fieldValue instanceof String) {
             fieldValue = "\"$fieldValue\"" // wrap it again in quotes
         } else if (fieldValue instanceof Long) {
-            fieldValue = fieldValue+"L"
+            fieldValue = fieldValue + "L"
         }
         return fieldValue
     }
